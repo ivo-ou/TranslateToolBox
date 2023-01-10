@@ -14,7 +14,8 @@ class TsFileEdit;
 enum match_result{
     Success  = 0,
     PartMatch,
-    Fail
+    Fail,
+    Ignore
 };
 
 class TsFileEdit : public QWidget

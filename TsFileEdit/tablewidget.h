@@ -9,6 +9,7 @@ class TableWidget : public QTableWidget
 public:
     TableWidget( QWidget* parent = nullptr );
     void InsetRowItem( QString unitName, QString source, QStringList translation_list, QString lang, QVariant var );
+    void SetBackGroundColor( int row = -1, int col = -1, QColor color = QColor( Qt::white ) );
 
 signals:
     void editFinished();

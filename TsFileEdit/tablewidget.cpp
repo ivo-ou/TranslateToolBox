@@ -66,6 +66,17 @@ void TableWidget::InsetRowItem( QString unitName, QString source, QStringList tr
     qApp->processEvents();
 }
 
+void TableWidget::SetBackGroundColor( int row, int col, QColor color )
+{
+    if( row == -1 )
+        row = rowCount() - 1;
+    if( col == -1 )
+        col = columnCount() - 1;
+    if( item( row, col ) )
+        item( row, col)->setData( Qt::BackgroundRole, color );
+    item( row, col)->
+}
+
 void TableWidget::CopyText( QTableWidgetItem* item )
 {
     QString txt = item->text();

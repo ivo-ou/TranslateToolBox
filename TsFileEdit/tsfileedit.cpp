@@ -129,7 +129,17 @@ void TsFileEdit::InitLangList( QStringList files )
             if( !m_xmlDoc_map.contains( id ) )
                 return ;
             if(m_xmlDoc_map[ id ]->SaveFile( m_chkBtn_vec[ id ]->getData().toString().toLocal8Bit().toStdString().c_str() ) == tinyxml2::XMLError::XML_SUCCESS )
+            {
                 qDebug() <<"更新成功" << m_chkBtn_vec[ id ]->getData().toString();
+                if( m_tblWidget_vec[ id ] )
+                {
+                    QModelIndex index = m_tblWidget_vec[ id ]->currentIndex();
+                    if( index.row() == -1 )
+                        return;
+                    m_tblWidget_vec[ id ]->SetBackGroundColor( index.row(), 2 );
+                }
+
+            }
             else
                 qDebug() <<"更新失败" << m_chkBtn_vec[ id ]->getData().toString();
         } );
@@ -219,22 +229,23 @@ void TsFileEdit::ReadUnit( TLUnit unit )
         {
             if ( !QString( unit.Content.value( source )->GetText() ).isEmpty() )
                 translation_list << unit.Content.value( source )->GetText();
-            //                        unit.Content.value( source )->SetText("");        // 清空翻译
         }
 
+        match_result result;
         // （翻译为空或不忽略已存在翻译）并且不在忽略词中，则进行翻译匹配
         if ( ( translation_list.size() == 0 || !ui->checkBox_exist_ign->isChecked() ) && !ign_words.contains( source ) )
         {
             qDebug() << " ";
-            match_result result = TranslateMatch( Config::getInstance().getLang()[ unit.Language ], source, translation_list, true );
+                   result = TranslateMatch( Config::getInstance().getLang()[ unit.Language ], source, translation_list, true );
             qDebug() << " ";
 
             if ( translation_list.size() )
             {
                 unit.Content.value( source )->SetText( translation_list.at( 0 ).toUtf8().data() );
+//                unit.Content.value( source )->SetText("");        // 清空翻译
             }
             //             不是完全匹配，则标记unfinished
-            if ( result != match_result::Success )
+            if ( result != match_result::Success && result != match_result::Ignore )
                 unit.Content.value( source )->SetAttribute( "type", "unfinished" );
             else if ( unit.Content.value( source )->Attribute( "type" ) )
                 unit.Content.value( source )->DeleteAttribute( "type" );
@@ -242,6 +253,8 @@ void TsFileEdit::ReadUnit( TLUnit unit )
         QVariant var;
         var.setValue( unit.Content.value( source ) );
         m_tblWidget_vec[ m_cur_lang ]->InsetRowItem( unit.UnitName, source, translation_list, Config::getInstance().getLang()[ unit.Language ], var ); // 插入行
+        if ( result != match_result::Success && result != match_result::Ignore )
+            m_tblWidget_vec[ m_cur_lang ]->SetBackGroundColor( -1, 2, QColor("#ffc107"));
         qApp->processEvents();
     }
 }
@@ -250,7 +263,7 @@ match_result TsFileEdit::TranslateMatch( QString langto, QString source, QString
 {
     // 原文中不包含中文
     if ( noChineseReg.exactMatch( source ) )
-        return match_result::Fail;
+        return match_result::Ignore;
     if ( m_dic_vec->contains( source ) )
     {
         auto match_list = m_dic_vec->values( source );
