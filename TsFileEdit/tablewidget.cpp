@@ -74,7 +74,6 @@ void TableWidget::SetBackGroundColor( int row, int col, QColor color )
         col = columnCount() - 1;
     if( item( row, col ) )
         item( row, col)->setData( Qt::BackgroundRole, color );
-    item( row, col)->
 }
 
 void TableWidget::CopyText( QTableWidgetItem* item )
