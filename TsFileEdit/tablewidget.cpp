@@ -49,7 +49,7 @@ bool TableWidget::event( QEvent* e )
     return QTableWidget::event( e );
 }
 
-void TableWidget::InsetRowItem( QString unitName, QString source, QStringList translation_list, QString lang, QVariant var )
+QTableWidgetItem* TableWidget::InsetRowItem( QString unitName, QString source, QStringList translation_list, QString lang, QVariant var )
 {
     int row = rowCount();
     setRowCount( row + 1 );
@@ -64,16 +64,22 @@ void TableWidget::InsetRowItem( QString unitName, QString source, QStringList tr
     item( row, 2 )->setData( Qt::UserRole + 2, var );                        // 节点
     update();
     qApp->processEvents();
+    return item( row, 2 );
 }
 
-void TableWidget::SetBackGroundColor( int row, int col, QColor color )
+void TableWidget::SetBackGroundColor( int row, int col, QString color )
 {
-    if( row == -1 )
+    if ( row == -1 )
         row = rowCount() - 1;
-    if( col == -1 )
+    if ( col == -1 )
         col = columnCount() - 1;
-    if( item( row, col ) )
-        item( row, col)->setData( Qt::BackgroundRole, color );
+    if ( item( row, col ) )
+    {
+        QString txt = item( row, col )->text();
+        QLabel* label = new QLabel( /*QString("<div style=\"color:%1\">%2</div>").arg(color).arg(*/ txt /*)*/, this );
+        label->setStyleSheet( QString( "background-color:%1" ).arg( color ) );
+        this->setCellWidget( row, col, label );
+    }
 }
 
 void TableWidget::CopyText( QTableWidgetItem* item )
@@ -91,11 +97,11 @@ void TableWidget::EditText( QTableWidgetItem* item )
     if ( item->column() != 2 )
         return;
     QString translate = item->text(); // 选中的翻译
-    QString source;             // 原文
+    QString source;                   // 原文
     if ( this->item( item->row(), 1 ) )
         source = this->item( item->row(), 1 )->text();
     QStringList candidate_list = item->data( Qt::UserRole ).toStringList(); // 候选的翻译
-    candidate_list.removeAll("");
+    candidate_list.removeAll( "" );
     QString langto = item->data( Qt::UserRole + 1 ).toString();
 
     // 翻译选中弹窗
@@ -112,7 +118,12 @@ void TableWidget::EditText( QTableWidgetItem* item )
     if ( ret.first.isEmpty() )
         xml_node->SetAttribute( "type", "unfinished" );
     else
+    {
         xml_node->DeleteAttribute( "type" );
+        tinyxml2::XMLElement* comment = xml_node->Parent()->FirstChildElement( "translatorcomment" );
+        if ( comment )
+            xml_node->Parent()->DeleteChild( comment ); // 删除translatorcomment节点
+    }
     emit editFinished();
 }
 

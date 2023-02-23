@@ -11,11 +11,23 @@ namespace Ui {
 class TsFileEdit;
 }
 
-enum match_result{
+enum match_ret{
     Success  = 0,
     PartMatch,
     Fail,
     Ignore
+};
+
+struct match_result{
+    match_ret ret;
+    QPair< QString, QString > match_str;
+    match_result( match_ret ret = match_ret::Ignore ){
+        this->ret = ret;
+    }
+    match_result( QPair< QString, QString > match_str, match_ret ret ){
+        this->ret = ret;
+        this->match_str = match_str;
+    }
 };
 
 class TsFileEdit : public QWidget

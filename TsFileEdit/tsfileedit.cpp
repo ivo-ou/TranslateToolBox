@@ -4,6 +4,7 @@
 #include "QtXlsx/xlsxdocument.h"
 
 #include <QFileDialog>
+#include <QMessageBox>
 
 TsFileEdit::TsFileEdit( QWidget* parent )
     : QWidget( parent )
@@ -68,6 +69,7 @@ void TsFileEdit::LoadDic()
     {
         qDebug() << xlsx.cellAt( 1, 2 )->value().toString() << lang_zh[ "zh_CN" ];
         ui->label_tip->setText( "字典文件格式错误，请检查！" );
+        QMessageBox::information( this, "错误", QString( "%1字典文件格式错误，请检查！" ).arg( file_path ) );
         return;
     }
     // 读取表头
@@ -126,22 +128,21 @@ void TsFileEdit::InitLangList( QStringList files )
             // 保存修改
             int id = m_stackedWidget->currentIndex();
             qDebug() << "current stackedwidget id: " << id;
-            if( !m_xmlDoc_map.contains( id ) )
-                return ;
-            if(m_xmlDoc_map[ id ]->SaveFile( m_chkBtn_vec[ id ]->getData().toString().toLocal8Bit().toStdString().c_str() ) == tinyxml2::XMLError::XML_SUCCESS )
+            if ( !m_xmlDoc_map.contains( id ) )
+                return;
+            if ( m_xmlDoc_map[ id ]->SaveFile( m_chkBtn_vec[ id ]->getData().toString().toLocal8Bit().toStdString().c_str() ) == tinyxml2::XMLError::XML_SUCCESS )
             {
-                qDebug() <<"更新成功" << m_chkBtn_vec[ id ]->getData().toString();
-                if( m_tblWidget_vec[ id ] )
+                qDebug() << "更新成功" << m_chkBtn_vec[ id ]->getData().toString();
+                if ( m_tblWidget_vec[ id ] )
                 {
                     QModelIndex index = m_tblWidget_vec[ id ]->currentIndex();
-                    if( index.row() == -1 )
+                    if ( index.row() == -1 )
                         return;
                     m_tblWidget_vec[ id ]->SetBackGroundColor( index.row(), 2 );
                 }
-
             }
             else
-                qDebug() <<"更新失败" << m_chkBtn_vec[ id ]->getData().toString();
+                qDebug() << "更新失败" << m_chkBtn_vec[ id ]->getData().toString();
         } );
         m_tblWidget_vec.push_back( tbl );
         m_stackedWidget->insertWidget( id, tbl );
@@ -175,7 +176,6 @@ void TsFileEdit::ParseTsDir()
             ui->label_tip->setText( QString( "识别到%1个文件" ).arg( files.size() ) );
             // 生成左侧按钮与右侧对于翻译列表
             InitLangList( files );
-
         }
     }
     qApp->postEvent( this, new QEvent( QEvent::Resize ) );
@@ -220,11 +220,12 @@ void TsFileEdit::SetWidgetState( bool start )
 // 读取xml回调函数
 void TsFileEdit::ReadUnit( TLUnit unit )
 {
-    QStringList ign_words = ui->lineEdit_exclude_words->text().split( "//" );
+    QStringList ign_words = ui->lineEdit_exclude_words->text().split( "//" ); // 过滤词
     for ( auto source : unit.Content.keys() )
     {
-        QStringList translation_list;
+        QStringList translation_list; // 存放候选翻译
 
+        // 获取TS中本身的翻译
         if ( unit.Content.value( source ) )
         {
             if ( !QString( unit.Content.value( source )->GetText() ).isEmpty() )
@@ -236,25 +237,37 @@ void TsFileEdit::ReadUnit( TLUnit unit )
         if ( ( translation_list.size() == 0 || !ui->checkBox_exist_ign->isChecked() ) && !ign_words.contains( source ) )
         {
             qDebug() << " ";
-                   result = TranslateMatch( Config::getInstance().getLang()[ unit.Language ], source, translation_list, true );
+            result = TranslateMatch( Config::getInstance().getLang()[ unit.Language ], source, translation_list, true );
             qDebug() << " ";
 
             if ( translation_list.size() )
             {
                 unit.Content.value( source )->SetText( translation_list.at( 0 ).toUtf8().data() );
-//                unit.Content.value( source )->SetText("");        // 清空翻译
+                //                unit.Content.value( source )->SetText("");        // 清空翻译
             }
-            //             不是完全匹配，则标记unfinished
-            if ( result != match_result::Success && result != match_result::Ignore )
+            // 不是完全匹配，则标记unfinished
+            if ( result.ret != match_ret::Success && result.ret != match_ret::Ignore )
+            {
                 unit.Content.value( source )->SetAttribute( "type", "unfinished" );
+                if ( result.ret != match_ret::Fail )
+                {
+                    tinyxml2::XMLElement* comment = unit.Content.value( source )->Parent()->FirstChildElement( "translatorcomment" );
+                    if ( !comment )
+                    {
+                        comment = unit.Content.value( source )->GetDocument()->NewElement( "translatorcomment" );
+                        unit.Content.value( source )->Parent()->InsertEndChild( comment );
+                    }
+                    comment->SetText( ( QString( "请核对翻译!中文：%1\n翻译：%2" ).arg( result.match_str.first ).arg( result.match_str.second ) ).toStdString().c_str() );
+                }
+            }
             else if ( unit.Content.value( source )->Attribute( "type" ) )
                 unit.Content.value( source )->DeleteAttribute( "type" );
         }
         QVariant var;
         var.setValue( unit.Content.value( source ) );
         m_tblWidget_vec[ m_cur_lang ]->InsetRowItem( unit.UnitName, source, translation_list, Config::getInstance().getLang()[ unit.Language ], var ); // 插入行
-        if ( result != match_result::Success && result != match_result::Ignore )
-            m_tblWidget_vec[ m_cur_lang ]->SetBackGroundColor( -1, 2, QColor("#ffc107"));
+        if ( result.ret != match_ret::Success && result.ret != match_ret::Ignore )
+            m_tblWidget_vec[ m_cur_lang ]->SetBackGroundColor( -1, 2, "#ffc107" );
         qApp->processEvents();
     }
 }
@@ -263,7 +276,7 @@ match_result TsFileEdit::TranslateMatch( QString langto, QString source, QString
 {
     // 原文中不包含中文
     if ( noChineseReg.exactMatch( source ) )
-        return match_result::Ignore;
+        return match_result();
     if ( m_dic_vec->contains( source ) )
     {
         auto match_list = m_dic_vec->values( source );
@@ -276,26 +289,28 @@ match_result TsFileEdit::TranslateMatch( QString langto, QString source, QString
                 continue;
             translate_list << r.at( m_cur_lang_index );
         }
-        return match_result::Success;
+        return match_result( qMakePair( source, match_list.first().at( m_cur_lang_index ) ), match_ret::Success );
     }
     else
     {
         qDebug() << "匹配翻译中 " + source;
-        original = false;
         if ( source.startsWith( " " ) )
         {
             // 以空格开头，去除头部空格匹配，若成功，在翻译头部添加空格
             QString s = source;
             QStringList list;
             match_result result = TranslateMatch( langto, s.remove( 0, 1 ), list, false );
-            if ( result == match_result::Success )
+            if ( result.ret == match_ret::Success )
             {
                 for ( QString& s : list )
                     s.insert( 0, " " );
             }
             translate_list.append( list );
-            if ( result != match_result::Fail )
+            if ( result.ret != match_ret::Fail )
+            {
+                result.ret = match_ret::PartMatch;
                 return result;
+            }
         }
         if ( source.endsWith( " " ) )
         {
@@ -303,12 +318,15 @@ match_result TsFileEdit::TranslateMatch( QString langto, QString source, QString
             QString s = source;
             QStringList list;
             match_result result = TranslateMatch( langto, s.left( s.size() - 1 ), list, false );
-            if ( result == match_result::Success )
+            if ( result.ret == match_ret::Success )
                 for ( QString& s : list )
                     s.append( " " );
             translate_list.append( list );
-            if ( result != match_result::Fail )
+            if ( result.ret != match_ret::Fail )
+            {
+                result.ret = match_ret::PartMatch;
                 return result;
+            }
         }
         if ( source.contains( "  " ) )
         {
@@ -316,8 +334,11 @@ match_result TsFileEdit::TranslateMatch( QString langto, QString source, QString
             QString s = source;
             qDebug() << "中间有多个空格 " + s.simplified();
             match_result result = TranslateMatch( langto, s.simplified(), translate_list, false );
-            if ( result != match_result::Fail )
+            if ( result.ret != match_ret::Fail )
+            {
+                result.ret = match_ret::PartMatch;
                 return result;
+            }
         }
         if ( source.contains( "  " ) )
         {
@@ -325,16 +346,22 @@ match_result TsFileEdit::TranslateMatch( QString langto, QString source, QString
             QString s = source;
             qDebug() << "中间有空格 " + s.replace( " ", "" );
             match_result result = TranslateMatch( langto, s.replace( " ", "" ), translate_list, false );
-            if ( result != match_result::Fail )
+            if ( result.ret != match_ret::Fail )
+            {
+                result.ret = match_ret::PartMatch;
                 return result;
+            }
         }
         if ( original )
         {
             // 原文去除尾部最后一个字符匹配翻译（通常最后一个为标点符号）
             QString s = source;
             match_result result = TranslateMatch( langto, s.left( s.size() - 1 ), translate_list, false );
-            if ( result != match_result::Fail )
+            if ( result.ret != match_ret::Fail )
+            {
+                result.ret = match_ret::PartMatch;
                 return result;
+            }
         }
     }
 
@@ -346,17 +373,9 @@ match_result TsFileEdit::TranslateMatch( QString langto, QString source, QString
         translate_list << BaiduTranslateAPI::getInstance().BaiduTranslate( source, Config::getInstance().getLang()[ langto ] );
     }
 
-    if ( translate_list.size() == 0 )
-    {
-        qDebug() << "无法匹配翻译:" << source;
-        ui->label_tip->setText( QString( "无法匹配翻译:%1" ).arg( source ) );
-        return match_result::Fail;
-    }
-    else
-    {
-        qDebug() << source << "匹配到" << translate_list.at( 0 );
-        return match_result::PartMatch;
-    }
+    qDebug() << "无法匹配翻译:" << source;
+    ui->label_tip->setText( QString( "无法匹配翻译:%1" ).arg( source ) );
+    return match_result( match_ret::Fail );
 }
 
 void TsFileEdit::LoadTs2Table()
