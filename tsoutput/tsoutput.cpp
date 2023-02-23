@@ -242,7 +242,7 @@ void TSOUTPUT::Output( QStringList fileList )
             {
                 for ( auto i = 0; i < qMax( map.size(), map_next.size() ); i++ )
                 {
-                    qDebug() << QString( "单元：%1 %2-%3" ).arg( i + 1 ).arg( map.size() < i ? "" : map[ i ].UnitName ).arg( map_next.size() < i ? "" : map_next[ i ].UnitName );
+                    qDebug() << QString( "单元：%1 %2  -   %3" ).arg( i + 1 ).arg( map.size() < i ? "" : map[ i ].UnitName ).arg( map_next.size() < i ? "" : map_next[ i ].UnitName );
                 }
                 return b;
             }
@@ -260,8 +260,11 @@ void TSOUTPUT::Output( QStringList fileList )
 
             if ( !isSame( m_dic_list[ i ], m_dic_list[ i + 1 ] ) )
             {
-                if ( QMessageBox::question( this, "错误", QString( "%1文件翻译数量与%2文件不一致，是否全部单独导出？" ).arg( m_file_lang[ i ].first ).arg( m_file_lang[ i + 1 ].first ) ) == QMessageBox::Cancel )
+                if ( QMessageBox::question( this, "错误", QString( "%1文件翻译数量与%2文件不一致，是否全部单独导出？" ).arg( m_file_lang[ i ].first ).arg( m_file_lang[ i + 1 ].first ) ) == QMessageBox::No )
+                {
+                    setLog( log, "合并导出失败!", LogLevel::info );
                     return;
+                }
                 setLog( log, "合并导出失败，正在单独导出文件!!!", LogLevel::error );
                 IndivOutput();
                 return;
@@ -280,12 +283,15 @@ void TSOUTPUT::Output( QStringList fileList )
 void TSOUTPUT::ReadTranslate( TLUnit unit )
 {
     // 处理已删除的节点 <translation type="vanished">
+    // 处理不知道啥的节点 <translation type="obsolete">
     // vanished为true则代码单元内没有有效的翻译，均是已删除的翻译，忽略该单元
+    if ( unit.Content.size() == 0 )
+        return;
     bool vanished = true;
     QHash< QString, tinyxml2::XMLElement* >::iterator iter = unit.Content.begin();
     while ( iter != unit.Content.end() )
     {
-        vanished = QString::fromUtf8( ( *iter.value() ).Attribute( "type" ) ) == "vanished";
+        vanished = QString::fromUtf8( ( *iter.value() ).Attribute( "type" ) ) == "vanished" || QString::fromUtf8( ( *iter.value() ).Attribute( "type" ) ) == "obsolete";
         if ( !vanished )
             break;
         iter++;
@@ -399,9 +405,11 @@ void TSOUTPUT::MergeOutput()
     xlsx.setDocumentProperty( "creator", "TranslateToolBox" );
     setLog( log, "合并文件成功，正在保存文件...", LogLevel::process );
     bool save = false;
-    threadExec( [&] { save = xlsx.saveAs( m_file_lang[ 0 ].first.split( "_" )[ 0 ] + "merge_output.xlsx" ); } );
+    QString file_path = ui->lineEdit_dir->text();
+    QString file_name = m_file_lang[ 0 ].first.split( "_" )[ 0 ] + "merge_output.xlsx";
+    threadExec( [&] { save = xlsx.saveAs( file_path + "/" + file_name ); } );
     if ( save )
-        setLog( log, "文件合并导出保存成功！\n\n\n", LogLevel::success );
+        setLog( log, QString( "文件合并导出保存成功！%1\n\n\n" ).arg( file_name ), LogLevel::success );
     else
         setLog( log, "文件合并导出保存失败！\n\n\n", LogLevel::error );
 }
@@ -499,9 +507,10 @@ void TSOUTPUT::IndivOutput()
         xlsx.setDocumentProperty( "description", "Created with TranslateToolBox Design by RD1537" );
         xlsx.setDocumentProperty( "creator", "TranslateToolBox" );
         bool save = false;
-        QString fileName = m_file_lang[ i ].first.replace( ".ts", "_output.xlsx" );
+        QString file_path = ui->lineEdit_dir->text();
+        QString fileName = m_file_lang[ i ].first.replace( ".ts", undone ? "_undone_output.xlsx":"_output.xlsx" );
         setLog( log, QString( "生成%1文件成功，正在保存文件..." ).arg( fileName ), LogLevel::process );
-        threadExec( [&] { save = xlsx.saveAs( fileName ); } );
+        threadExec( [&] { save = xlsx.saveAs( file_path + "/" + fileName ); } );
         if ( save )
             setLog( log, QString( "%1文件导出保存成功！\n\n" ).arg( fileName ), LogLevel::success );
         else
