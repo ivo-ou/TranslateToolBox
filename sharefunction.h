@@ -239,9 +239,12 @@ inline QString RorWXML( tinyxml2::XMLDocument* doc, std::function< void( TLUnit 
                     curSource = node->FirstChildElement( "source" )->GetText();
                     if ( !node->FirstChildElement( "translation" ) )
                         goto nextone;
-                    if ( !curSource.isEmpty() )
+                    if ( !curSource.isEmpty() && curSource.contains( QRegExp(ChineseReg)))
+                    {
+                        // 不处理原文中不含中文的字符
                         unit.Content[ curSource ] = node->FirstChildElement( "translation" );
-                    qDebug() << curFileName << curSource << node->FirstChildElement( "translation" )->GetText();
+                        qDebug() << curFileName << curSource << node->FirstChildElement( "translation" )->GetText();
+                    }
                 }
                 else if ( QString::fromUtf8( node->Name() ) == "name" )
                 {
