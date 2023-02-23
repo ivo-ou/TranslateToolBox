@@ -28,6 +28,7 @@ private:
     void cleanWidgetLang(); // 清除左侧语言widget
     void MergeOutput(); // 合并导出
     void IndivOutput(); // 单独导出
+    void setButtonStatus( bool enabled );
 
 private slots:
     void Seldir();                       // 路径选择

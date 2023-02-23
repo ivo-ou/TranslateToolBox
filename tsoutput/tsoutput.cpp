@@ -310,10 +310,12 @@ void TSOUTPUT::ReadTranslate( TLUnit unit )
 
 void TSOUTPUT::on_pushButton_start_clicked()
 {
+    setButtonStatus( false );
     QStringList file_list = Transform();  // 转换文件
     if ( m_workMode == WorkMode::t2xlsx ) // 模式为导出时，进行导出
         // 导出为xlsx
         Output( file_list );
+    setButtonStatus( true );
 }
 
 // 合并导出
@@ -391,10 +393,12 @@ void TSOUTPUT::MergeOutput()
                 // 百度翻译
                 if ( ui->checkBox_translate->isChecked() )
                 {
-                    ++col;
                     // 获取的翻译为空，且原文中含中文（非全英文或数字组合），则翻译
                     if ( translate.isEmpty() && !noChineseReg.exactMatch( source ) )
-                        xlsx.write( row, col, BaiduTranslateAPI::getInstance().BaiduTranslate( source, lang[ dic[ index ].Language ] ), format ); // 获取百度翻译
+                    {
+                        setLog( log, QString( "正在通过API获取%1的翻译" ).arg( source ), LogLevel::process );
+                        xlsx.write( row, ++col, BaiduTranslateAPI::getInstance().BaiduTranslate( source, lang[ dic[ index ].Language ] ), format ); // 获取百度翻译
+                    }
                 }
             }
             row++;
@@ -494,9 +498,11 @@ void TSOUTPUT::IndivOutput()
 
                 if ( ui->checkBox_translate->isChecked() )
                 {
-                    ++col;
                     if ( translate.isEmpty() && !noChineseReg.exactMatch( source ) )
-                        xlsx.write( row, col, BaiduTranslateAPI::getInstance().BaiduTranslate( source, lang[ unit.Language ] ), format ); // 获取百度翻译
+                    {
+                        setLog( log, QString( "正在通过API获取%1的翻译" ).arg( source ), LogLevel::process );
+                        xlsx.write( row, ++col, BaiduTranslateAPI::getInstance().BaiduTranslate( source, lang[ unit.Language ] ), format ); // 获取百度翻译
+                    }
                 }
                 row++;
             }
@@ -508,7 +514,7 @@ void TSOUTPUT::IndivOutput()
         xlsx.setDocumentProperty( "creator", "TranslateToolBox" );
         bool save = false;
         QString file_path = ui->lineEdit_dir->text();
-        QString fileName = m_file_lang[ i ].first.replace( ".ts", undone ? "_undone_output.xlsx":"_output.xlsx" );
+        QString fileName = m_file_lang[ i ].first.replace( ".ts", undone ? "_undone_output.xlsx" : "_output.xlsx" );
         setLog( log, QString( "生成%1文件成功，正在保存文件..." ).arg( fileName ), LogLevel::process );
         threadExec( [&] { save = xlsx.saveAs( file_path + "/" + fileName ); } );
         if ( save )
@@ -517,6 +523,14 @@ void TSOUTPUT::IndivOutput()
             setLog( log, QString( "%1文件导出保存失败！\n\n" ).arg( fileName ), LogLevel::error );
     }
     setLog( log, "\n", LogLevel::info );
+}
+
+void TSOUTPUT::setButtonStatus( bool enabled )
+{
+    ui->widget_lang->setEnabled( enabled );
+    ui->widget_func->setEnabled( enabled );
+    ui->widget->setEnabled( enabled );
+    ui->pushButton_start->setEnabled( enabled );
 }
 
 void TSOUTPUT::on_checkBox_indiv_toggled( bool checked )
