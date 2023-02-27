@@ -245,6 +245,9 @@ void TsFileEdit::ReadUnit( TLUnit unit )
         // （翻译为空或不忽略已存在翻译）并且不在忽略词中，则进行翻译匹配
         if ( ( translation_list.size() == 0 || !ui->checkBox_exist_ign->isChecked() ) && !ign_words.contains( source ) )
         {
+            // 不匹配vanished和obsolute标记的翻译
+            if ( unit.Content.value( source )->Attribute( "type" ) && std::strcmp( unit.Content.value( source )->Attribute( "type" ), "unfinished") != 0)
+                break;
             qDebug() << " ";
             result = TranslateMatch( Config::getInstance().getLang()[ unit.Language ], source, translation_list, true );
             qDebug() << " ";
