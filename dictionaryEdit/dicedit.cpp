@@ -1,6 +1,7 @@
 ﻿#include "dicedit.h"
 #include "ui_dicedit.h"
 #include "xlsxdocument.h"
+#include "dicquery_dlg.h"
 
 #include <QFileDialog>
 //#include <select
@@ -46,6 +47,7 @@ void DicEdit::initModel()
     QFileInfo fileInfo( file_path );
     ui->widget_func->setEnabled( true );
     ui->pushButton_save->setEnabled( true );
+    ui->pushButton_search->setEnabled( true );
     ui->pushButton_restore->setEnabled( true );
     ui->pushButton_redo->setEnabled( true );
     ui->pushButton_import->setEnabled( true );
@@ -54,6 +56,7 @@ void DicEdit::initModel()
         ui->label_tip->setText( "文件不存在，请检查目录！" );
         ui->widget_func->setEnabled( false );
         ui->pushButton_save->setEnabled( false );
+        ui->pushButton_search->setEnabled( false );
         ui->pushButton_restore->setEnabled( false );
         ui->pushButton_redo->setEnabled( false );
         ui->pushButton_import->setEnabled( false );
@@ -273,6 +276,31 @@ void DicEdit::OutputModel()
     }
 }
 
+void DicEdit::Query(QString q, int index)
+{
+    if( !q.isEmpty() )
+    {
+        m_query_items.clear();
+        for( int row = 0; row < m_model->rowCount(); row++ )
+        {
+            for( int col = 0; col < m_model->columnCount(); col++ )
+            {
+                if( m_model->item(row, col )->text() == q )
+                    m_query_items.push_back( m_model->item(row, col )->index() );
+            }
+        }
+        m_cur_index = 0;
+    }
+    m_cur_index += index;
+    if( m_cur_index < 0 )
+        m_cur_index = m_query_items.size() + m_cur_index;
+    if( m_cur_index >= m_query_items.size() )
+        m_cur_index = m_cur_index - m_query_items.size();
+    if( m_cur_index < 0 || m_cur_index >= m_query_items.size() )
+        return;
+    ui->tableView->setCurrentIndex( m_query_items.at( m_cur_index ) );
+}
+
 void DicEdit::on_pushButton_del_clicked()
 {
     QItemSelectionModel* select_model = ui->tableView->selectionModel();
@@ -290,4 +318,11 @@ void DicEdit::on_pushButton_del_clicked()
         sel_rows.pop_front();
     }
     qDebug() << "删除行";
+}
+
+void DicEdit::on_pushButton_search_clicked()
+{
+    DicQuery_Dlg *query_dlg = new DicQuery_Dlg( this );
+    connect( query_dlg, &DicQuery_Dlg::query, this, &DicEdit::Query );
+    query_dlg->show();
 }

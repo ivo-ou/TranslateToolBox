@@ -47,7 +47,8 @@ SOURCES += \
     TsFileEdit/tsfileedit.cpp \
     TsFileEdit/tablewidget.cpp \
     TsFileEdit/checkbtn.cpp \
-    TsFileEdit/seltlwidget.cpp
+    TsFileEdit/seltlwidget.cpp \
+    dictionaryEdit/dicquery_dlg.cpp
 
 HEADERS += \
         toolboxui.h \
@@ -58,13 +59,15 @@ HEADERS += \
     TsFileEdit/tsfileedit.h \
     TsFileEdit/tablewidget.h \
     TsFileEdit/checkbtn.h \
-    TsFileEdit/seltlwidget.h
+    TsFileEdit/seltlwidget.h \
+    dictionaryEdit/dicquery_dlg.h
 
 FORMS += \
         toolboxui.ui \
     dictionaryEdit/dicedit.ui \
     tsoutput/tsoutput.ui \
-    TsFileEdit/tsfileedit.ui
+    TsFileEdit/tsfileedit.ui \
+    dictionaryEdit/dicquery_dlg.ui
 
 win32::QMAKE_CXXFLAGS += -FIcharsetsetting.inc
 win32::QMAKE_CFLAGS += -FIcharsetsetting.inc
