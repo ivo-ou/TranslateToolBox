@@ -2,13 +2,14 @@
 #include "ui_tsfileedit.h"
 #include "baidutranslateapi.h"
 #include "QtXlsx/xlsxdocument.h"
-
+#include <QTimer>
 #include <QFileDialog>
 #include <QMessageBox>
 
 TsFileEdit::TsFileEdit( QWidget* parent )
     : QWidget( parent )
     , ui( new Ui::TsFileEdit )
+    , m_doubleClk_timer( nullptr )
     , m_dic_vec( nullptr )
 {
     ui->setupUi( this );
@@ -19,6 +20,9 @@ TsFileEdit::TsFileEdit( QWidget* parent )
     connect( ui->pushButton_sel_ts, &QPushButton::clicked, this, &TsFileEdit::SelTsdir );
     connect( ui->lineEdit_dir_ts, &QLineEdit::editingFinished, this, &TsFileEdit::ParseTsDir );
     connect( ui->pushButton_ok, &QPushButton::clicked, this, &TsFileEdit::LoadTs2Table );
+    connect( ui->pushButton_mark_allDone, &QPushButton::clicked, this, &TsFileEdit::on_pushButton_double_clicked );
+    connect( ui->pushButton_mark_allUndone, &QPushButton::clicked, this, &TsFileEdit::on_pushButton_double_clicked );
+    connect( ui->pushButton_clean_allT, &QPushButton::clicked, this, &TsFileEdit::on_pushButton_double_clicked );
 }
 
 TsFileEdit::~TsFileEdit()
@@ -29,6 +33,10 @@ TsFileEdit::~TsFileEdit()
 
 void TsFileEdit::InitUI()
 {
+    m_doubleClk_timer = new QTimer( this );
+    m_doubleClk_timer->setSingleShot( true );
+    m_doubleClk_timer->setInterval( 500 );
+
     ui->label_tip->clear();
     m_stackedWidget = new QStackedWidget( ui->widget_5 );
     ui->verticalLayout_2->addWidget( m_stackedWidget );
@@ -209,6 +217,7 @@ void TsFileEdit::SetWidgetState( bool start )
     ui->pushButton_ok->setEnabled( !start );
     ui->widget_func->setEnabled( !start );
     ui->widget_dir->setEnabled( !start );
+    ui->widget_2->setEnabled( !start );
     for ( auto btn : m_chkBtn_vec )
     {
         btn->setChkEnabled( !start );
@@ -448,4 +457,77 @@ void TsFileEdit::SelTsdir()
         return;
     ui->lineEdit_dir_ts->setText( dir_path );
     ParseTsDir();
+}
+
+void TsFileEdit::on_pushButton_double_clicked()
+{
+    static QPushButton* btn;
+    QPushButton* sender = static_cast< QPushButton* >( this->sender() );
+
+    if ( btn && btn == sender )
+    {
+        if ( m_doubleClk_timer->isActive() )
+        {
+            qDebug() << "double cli";
+
+            std::function< void(TLUnit) > fun;
+            if ( btn == ui->pushButton_mark_allDone )
+            {
+                fun = []( TLUnit unit ) {
+                    for ( auto node : unit.Content )
+                    {
+                        if ( node->Attribute( "type" ) )
+                            node->DeleteAttribute( "type" );
+                    }
+                };
+            }
+            else if ( btn == ui->pushButton_mark_allUndone )
+            {
+                fun = []( TLUnit unit ) {
+                    for ( auto node : unit.Content )
+                        node->SetAttribute( "type", "unfinished" );
+                };
+            }
+            else
+            {
+                fun = []( TLUnit unit ) {
+                    for ( auto node : unit.Content )
+                    {
+                        node->SetText( "" );
+                        if ( node->Attribute( "type" ) )
+                            node->DeleteAttribute( "type" );
+                    }
+                };
+            }
+
+            SetWidgetState( true );
+            for ( auto lang_btn : m_chkBtn_vec )
+            {
+                if ( !lang_btn->isChecked() )
+                    continue;
+                QString file = lang_btn->getData().toString()/*.replace( " ", "/ " )*/;
+                tinyxml2::XMLDocument* doc = new tinyxml2::XMLDocument();
+                if ( !loadTS( doc, file ) )
+                {
+                    ui->label_tip->setText( QString( "%1文件打开失败！" ).arg( file.split( "/" ).back() ) );
+                    continue;
+                }
+                ui->label_tip->setText( QString( "正在标记%1文件！" ).arg( file.split( "/" ).back() ) );
+
+                RorWXML( doc, fun ); // 读取ts文件
+                ui->label_tip->setText( QString( "正在保存%1文件！" ).arg( file.split( "/" ).back() ) );
+                if ( tinyxml2::XMLError::XML_SUCCESS == doc->SaveFile( file.toLocal8Bit().toStdString().c_str() ) )
+                    ui->label_tip->setText( QString( "保存%1文件成功！" ).arg( file.split( "/" ).back() ) );
+                else
+                    ui->label_tip->setText( QString( "保存%1文件失败！" ).arg( file.split( "/" ).back() ) );
+            }
+            SetWidgetState( false );
+        }
+        btn = nullptr;
+    }
+    else
+    {
+        btn = sender;
+        m_doubleClk_timer->start();
+    }
 }

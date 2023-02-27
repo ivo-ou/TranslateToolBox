@@ -30,6 +30,8 @@ struct match_result{
     }
 };
 
+class QTimer;
+
 class TsFileEdit : public QWidget
 {
     Q_OBJECT
@@ -52,10 +54,12 @@ private slots:
     void LoadTs2Table();
     void SelDicdir();                       // 字典路径选择
     void SelTsdir();                       // TS文件路径选择
+    void on_pushButton_double_clicked();
 
 private:
     Ui::TsFileEdit *ui;
     QStackedWidget *m_stackedWidget;
+    QTimer *m_doubleClk_timer;
     QMap< int, QPair< QString, int>> m_header_index;   // 表格中语言与对应的列<序号<英语，列号>>
     QMultiHash< QString, QVector<QString> > *m_dic_vec;    // 原文，翻译
     QVector< TableWidget* > m_tblWidget_vec;
