@@ -191,10 +191,10 @@ inline void threadExec( L lambdaExecFun )
 
 inline bool loadTS( tinyxml2::XMLDocument* doc, QString path )
 {
-    auto ret = doc->LoadFile( path.toStdString().c_str() );
+    auto ret = doc->LoadFile( path.toLocal8Bit() );
     if ( ret != tinyxml2::XMLError::XML_SUCCESS )
     {
-        qDebug() << "文件打开失败：" << path.toStdString().c_str() << ret;
+        qDebug() << "文件打开失败：" << path.toLocal8Bit() << ret;
         return false;
     }
     return true;
