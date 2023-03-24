@@ -13,7 +13,7 @@
 #include <tinyxml2.h>
 
 #define noChineseReg QRegExp( "^[A-Za-z0-9^%&*（）()+-.',;=?/-—~μ$x22℃↓↑!]+$" )
-#define ChineseReg QRegExp( "[\\x4e00-\\x9fa5]+$" )
+#define ChineseReg QRegExp( "[\u4e00-\u9fa5]+" )
 
 #define minBtn QSize( 46, 28 )
 #define normalBtn QSize( 64, 32 )
@@ -245,6 +245,8 @@ inline QString RorWXML( tinyxml2::XMLDocument* doc, std::function< void( TLUnit 
                         unit.Content[ curSource ] = node->FirstChildElement( "translation" );
                         qDebug() << curFileName << curSource << node->FirstChildElement( "translation" )->GetText();
                     }
+                    else
+                        qDebug() << "no chinese " << curSource;
                 }
                 else if ( QString::fromUtf8( node->Name() ) == "name" )
                 {
